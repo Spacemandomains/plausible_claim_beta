@@ -1,20 +1,20 @@
 // =================================================================
-// FEDERAL RETALIATION CLAIM GAME: COMPLETE JAVASCRIPT LOGIC
+// FEDERAL RETALIATION CLAIM GAME: COMPLETE JAVASCRIPT LOGIC (NO SCORE DISPLAY)
 // =================================================================
 
 // --- GAME STATE AND ELEMENTS ---
 const elements = [
     {
         name: "Protected Activity",
-        question: "Plaintiff, describe your protected activity (e.g., filing an EEOC charge or requesting an accommodation). Include date and evidence."
+        question: "Plaintiff, describe your protected activity (e.g., filing an an internal complaint, an EEOC charge, or requesting a reasonable accommodation). Include date and evidence."
     },
     {
         name: "Adverse Employment Action",
-        question: "Describe the adverse action taken against you (e.g., suspension, demotion, termination). Include dates, effect on pay/responsibilities, and documents."
+        question: "Describe the adverse action taken against you (e.g., suspension, demotion, termination, or significant change in duties). Include dates, effect on pay/responsibilities, and documents."
     },
     {
         name: "Causal Connection / But-For Cause",
-        question: "Explain how the adverse action was caused by your protected activity (timing, statements, patterns, other evidence)."
+        question: "Explain how the adverse action was caused by your protected activity (timing, statements, patterns, or other evidence)."
     }
 ];
 
@@ -51,7 +51,7 @@ function showQuestion() {
 
     if (currentStep < elements.length) {
         gameContent.innerHTML = `
-            <div class="question">${elements[currentStep].name}</div>
+            <div class="question"><h2>${elements[currentStep].name}</h2></div>
             <p>${elements[currentStep].question}</p>
             <textarea id="answer" rows="5" placeholder="Provide specific facts: Who, What, When, Where..."></textarea>
             <button onclick="nextStep()">Submit Answer</button>
@@ -98,7 +98,7 @@ function extractFactualIndicators(text, element) {
         score += SCORE_WEIGHTS.DATE_COUNT;
     }
 
-    // 2. Check for proper nouns/names (simple check for capitalization sequence)
+    // 2. Check for proper nouns/names
     const nameRegex = /([A-Z][a-z]+)\s([A-Z][a-z]+)/g;
     if (text.match(nameRegex) && text.match(nameRegex).length > 0) {
         score += SCORE_WEIGHTS.SPECIFIC_PERSON;
@@ -106,7 +106,7 @@ function extractFactualIndicators(text, element) {
 
     // 3. Check for specific, non-conclusory actions/terms (Applies to Protected Activity and AEA)
     if (element === "Protected Activity" || element === "Adverse Employment Action") {
-        const actionRegex = /(EEOC|accommodation|demotion|termination|pay cut|transfer|suspension|fired|complaint|testified)/i;
+        const actionRegex = /(EEOC|accommodation|demotion|termination|pay cut|transfer|suspension|fired|complaint|testified|disciplined)/i;
         if (actionRegex.test(text)) {
             score += SCORE_WEIGHTS.ACTION_SPECIFIC;
         }
@@ -117,23 +117,21 @@ function extractFactualIndicators(text, element) {
         // A. Look for strong temporal proximity indicators (e.g., 'days,' 'week,' 'immediately')
         const proximityRegex = /(\d{1,2}\s(?:days|weeks|week)|immediately|just\s[a-z]*\safter)/i;
         if (proximityRegex.test(text)) {
-            score += SCORE_WEIGHTS.TIMING_BONUS; // +2 for strong link
+            score += SCORE_WEIGHTS.TIMING_BONUS; 
         }
         
         // B. Look for policy or pattern evidence (suggesting pretext/deviation)
-        const policyRegex = /(handbook|policy|procedure|standard practice|no warning|deviation|sudden change)/i;
+        const policyRegex = /(handbook|policy|procedure|standard practice|no warning|deviation|sudden change|clean record)/i;
         if (policyRegex.test(text)) {
-            score += SCORE_WEIGHTS.POLICY_BONUS; // +1 for pretext evidence
+            score += SCORE_WEIGHTS.POLICY_BONUS;
         }
     }
 
     // 5. Conclusion Penalty: If the score is low AND legal jargon is present, it's likely a conclusion.
     const conclusionTerms = /(retaliated|discriminatory|illegal|unfair|unjust|harassment|hostile|bad faith)/i;
-    // Base score check (excluding Causal Connection bonuses)
     const baseScore = score - (element === "Causal Connection / But-For Cause" ? SCORE_WEIGHTS.TIMING_BONUS + SCORE_WEIGHTS.POLICY_BONUS : 0);
     
     if (conclusionTerms.test(text) && baseScore < 1) {
-        // If they use legal terms AND provided no dates/names, the fact value is zeroed out.
         return 0; 
     }
 
@@ -141,7 +139,7 @@ function extractFactualIndicators(text, element) {
 }
 
 /**
- * Calculates the total score and displays the final legal ruling.
+ * Calculates the total score and displays the final legal ruling (without showing P_Total).
  */
 function showResults() {
     let totalPlausibilityScore = 0;
@@ -161,7 +159,7 @@ function showResults() {
         // P_Total < 3
         rulingClass = 'weak-claim';
         rulingText = 'Weak Claim: Dismissed for Failure to State a Claim.';
-        rulingDescription = `The allegations predominantly use legal conclusions rather than specific facts (Who, What, When). The claim fails to meet the **Plausibility Standard** and would likely be dismissed on a Motion to Dismiss (Rule 12(b)(6)).`;
+        rulingDescription = `The allegations predominantly use **legal conclusions** rather than specific facts (Who, What, When). The claim fails to meet the **Plausibility Standard** and would likely be dismissed on a Motion to Dismiss (Rule 12(b)(6)).`;
     } else if (totalPlausibilityScore < SCORE_THRESHOLDS.PLAUSIBLE) {
         // 3 <= P_Total < 6
         rulingClass = 'plausible-claim';
@@ -171,19 +169,20 @@ function showResults() {
         // P_Total >= 6
         rulingClass = 'strong-claim';
         rulingText = 'Legally Strong: Well-Pled Complaint.';
-        rulingDescription = `The claim is supported by highly specific allegations, including strong **temporal proximity** and/or evidence of **pretext** (policy deviation). This positions the Plaintiff favorably to withstand a later Motion for Summary Judgment.`;
+        rulingDescription = `The claim is supported by **highly specific allegations**, including strong **temporal proximity** and/or evidence of **pretext** (policy deviation). This positions the Plaintiff favorably to withstand a later Motion for Summary Judgment.`;
     }
     
-    // 3. Render the Results
+    // 3. Render the Results (Excluding the P_Total score display)
     let content = "<h3>🏛️ Judge's Plausibility Ruling:</h3>";
     content += `<div class='${rulingClass} result-box'>`;
     
+    // Display the submitted facts
     answers.forEach(a => {
-        content += `<p><strong>${a.element}</strong> (Score: ${a.score}): <em>${a.answer}</em></p>`;
+        // NOTE: score is NOT included in the final output
+        content += `<p><strong>${a.element}:</strong> <em>${a.answer}</em></p>`;
     });
 
     content += `<hr>`;
-    content += `<h4 class="tally-score">Final Plausibility Tally: ${totalPlausibilityScore}</h4>`;
     content += `<h2 class="ruling-title">${rulingText}</h2>`;
     content += `<p class="ruling-description">${rulingDescription}</p>`;
     content += "</div>";
@@ -192,9 +191,7 @@ function showResults() {
 }
 
 // --- INITIALIZE GAME ---
-// This line should be run when the HTML document is fully loaded.
-// For simplicity in this single file, we call it directly.
 showQuestion();
 
-// Optional: You would need some basic CSS (e.g., for .result-box, .weak-claim, .strong-claim) 
-// to visually differentiate the rulings.
+// NOTE: You will need corresponding CSS classes (.weak-claim, .plausible-claim, .strong-claim) 
+// to visually distinguish the different rulings in your HTML setup.
